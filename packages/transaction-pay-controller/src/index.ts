@@ -4,6 +4,7 @@ export type {
   TransactionData,
   TransactionFiatPayment,
   TransactionFiatPaymentCallback,
+  GetPaymentOverrideDataCallback,
   TransactionPayControllerActions,
   TransactionPayControllerEvents,
   TransactionPayControllerGetStateAction,

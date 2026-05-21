@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `getPaymentOverrideData` callback to `TransactionPayControllerOptions`; when `paymentOverride` is defined on a transaction, this callback is invoked and the resulting transactions are included atomically in the relay quote request via the `txs` field ([#8870](https://github.com/MetaMask/core/pull/8870))
+
 ## [22.7.0]
 
 ### Added

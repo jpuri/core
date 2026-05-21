@@ -14,6 +14,7 @@ import {
   CHAIN_ID_HYPERCORE,
   CHAIN_ID_POLYGON,
   NATIVE_TOKEN_ADDRESS,
+  PaymentOverride,
   POLYGON_USDCE_ADDRESS,
 } from '../../constants';
 import { getMessengerMock } from '../../tests/messenger-mock';
@@ -183,6 +184,7 @@ describe('Relay Quotes Utils', () => {
     getDelegationTransactionMock,
     getGasFeeTokensMock,
     getKeyringControllerStateMock,
+    getPaymentOverrideDataMock,
     getRemoteFeatureFlagControllerStateMock,
     polymarketGetDepositWalletAddressMock,
   } = getMessengerMock();
@@ -3372,6 +3374,164 @@ describe('Relay Quotes Utils', () => {
         expect(body.refundTo).toBe(DEPOSIT_WALLET_MOCK);
         expect(body.useDepositAddress).toBe(true);
         expect(body.strict).toBe(true);
+      });
+    });
+
+    describe('paymentOverride transaction injection (paymentOverride defined)', () => {
+      const PAYMENT_OVERRIDE_TX_MOCK = {
+        from: FROM_MOCK,
+        to: '0xpaymentoverride' as Hex,
+        data: '0xpaymentoverride' as Hex,
+        value: '0x0',
+      };
+
+      beforeEach(() => {
+        successfulFetchMock.mockResolvedValue({
+          ok: true,
+          json: async () => QUOTE_MOCK,
+        } as never);
+
+        estimateGasBatchMock.mockResolvedValue({
+          gasLimits: [30000, 21000],
+          totalGasLimit: 51000,
+        });
+      });
+
+      it('includes paymentOverride transactions in request txs for standard flow', async () => {
+        getPaymentOverrideDataMock.mockResolvedValue([PAYMENT_OVERRIDE_TX_MOCK]);
+
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [
+            {
+              ...QUOTE_REQUEST_MOCK,
+              paymentOverride: PaymentOverride.MoneyAccount,
+            },
+          ],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs).toStrictEqual([
+          {
+            to: PAYMENT_OVERRIDE_TX_MOCK.to,
+            data: PAYMENT_OVERRIDE_TX_MOCK.data,
+            value: PAYMENT_OVERRIDE_TX_MOCK.value,
+          },
+        ]);
+      });
+
+      it('includes paymentOverride transactions in request txs for post-quote flow', async () => {
+        getPaymentOverrideDataMock.mockResolvedValue([PAYMENT_OVERRIDE_TX_MOCK]);
+
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [
+            {
+              ...QUOTE_REQUEST_MOCK,
+              paymentOverride: PaymentOverride.MoneyAccount,
+              isPostQuote: true,
+            },
+          ],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs).toStrictEqual([
+          {
+            to: PAYMENT_OVERRIDE_TX_MOCK.to,
+            data: PAYMENT_OVERRIDE_TX_MOCK.data,
+            value: PAYMENT_OVERRIDE_TX_MOCK.value,
+          },
+        ]);
+      });
+
+      it('does not include txs when paymentOverride is not defined', async () => {
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [QUOTE_REQUEST_MOCK],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs).toBeUndefined();
+        expect(getPaymentOverrideDataMock).not.toHaveBeenCalled();
+      });
+
+      it('does not include txs when callback returns empty array', async () => {
+        getPaymentOverrideDataMock.mockResolvedValue([]);
+
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [
+            {
+              ...QUOTE_REQUEST_MOCK,
+              paymentOverride: PaymentOverride.MoneyAccount,
+            },
+          ],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs).toBeUndefined();
+      });
+
+      it('defaults data to 0x in txs when transaction data is absent', async () => {
+        const { data: _data, ...txWithoutData } = PAYMENT_OVERRIDE_TX_MOCK;
+
+        getPaymentOverrideDataMock.mockResolvedValue([txWithoutData]);
+
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [
+            {
+              ...QUOTE_REQUEST_MOCK,
+              paymentOverride: PaymentOverride.MoneyAccount,
+            },
+          ],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs[0].data).toBe('0x');
+      });
+
+      it('defaults value to 0x0 in txs when transaction value is absent', async () => {
+        const { value: _value, ...txWithoutValue } = PAYMENT_OVERRIDE_TX_MOCK;
+
+        getPaymentOverrideDataMock.mockResolvedValue([txWithoutValue]);
+
+        await getRelayQuotes({
+          accountSupports7702: true,
+          messenger,
+          requests: [
+            {
+              ...QUOTE_REQUEST_MOCK,
+              paymentOverride: PaymentOverride.MoneyAccount,
+            },
+          ],
+          transaction: TRANSACTION_META_MOCK,
+        });
+
+        const requestBody = JSON.parse(
+          successfulFetchMock.mock.calls[0][1]?.body as string,
+        );
+        expect(requestBody.txs[0].value).toBe('0x0');
       });
     });
 

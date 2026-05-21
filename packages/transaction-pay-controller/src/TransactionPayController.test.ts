@@ -469,6 +469,43 @@ describe('TransactionPayController', () => {
     });
   });
 
+  describe('getPaymentOverrideData', () => {
+    it('delegates to the callback', async () => {
+      const txMock = { from: '0xabc', to: '0xdef' };
+      const getPaymentOverrideDataMock = jest.fn().mockResolvedValue([txMock]);
+
+      new TransactionPayController({
+        getDelegationTransaction: jest.fn(),
+        getPaymentOverrideData: getPaymentOverrideDataMock,
+        messenger,
+      });
+
+      const result = await messenger.call(
+        'TransactionPayController:getPaymentOverrideData',
+        TRANSACTION_ID_MOCK,
+      );
+
+      expect(getPaymentOverrideDataMock).toHaveBeenCalledWith(
+        TRANSACTION_ID_MOCK,
+      );
+      expect(result).toStrictEqual([txMock]);
+    });
+
+    it('returns empty array when no callback is configured', async () => {
+      new TransactionPayController({
+        getDelegationTransaction: jest.fn(),
+        messenger,
+      });
+
+      const result = await messenger.call(
+        'TransactionPayController:getPaymentOverrideData',
+        TRANSACTION_ID_MOCK,
+      );
+
+      expect(result).toStrictEqual([]);
+    });
+  });
+
   describe('polymarket callbacks', () => {
     const EOA_MOCK = '0x1111111111111111111111111111111111111111' as Hex;
     const DEPOSIT_WALLET_MOCK =

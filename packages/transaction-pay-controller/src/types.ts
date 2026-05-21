@@ -54,6 +54,7 @@ import type {
   TransactionControllerStateChangeEvent,
   TransactionControllerUpdateTransactionAction,
   TransactionMeta,
+  TransactionParams,
 } from '@metamask/transaction-controller';
 import type { Hex, Json } from '@metamask/utils';
 import type { Draft } from 'immer';
@@ -152,6 +153,15 @@ export type TransactionConfig = {
 /** Callback to update transaction config. */
 export type TransactionConfigCallback = (config: TransactionConfig) => void;
 
+/**
+ * Callback invoked during quote execution when `paymentOverride` is defined.
+ * Returns additional transactions to be bundled atomically with the relay
+ * quote request via the `txs` field.
+ */
+export type GetPaymentOverrideDataCallback = (
+  transactionId: string,
+) => Promise<TransactionParams[]>;
+
 /** Callback to update fiat payment state. */
 export type TransactionFiatPaymentCallback = (
   fiatPayment: TransactionFiatPayment,
@@ -202,6 +212,12 @@ export type TransactionPayControllerOptions = {
 
   /** Callbacks for the Polymarket relayer; required only for the Polymarket deposit-wallet flow. */
   polymarket?: PolymarketCallbacks;
+
+  /**
+   * Optional callback invoked during quote execution when `paymentOverride` is defined.
+   * Returns additional transactions to be bundled atomically with the relay request.
+   */
+  getPaymentOverrideData?: GetPaymentOverrideDataCallback;
 
   /** Initial state of the controller. */
   state?: Partial<TransactionPayControllerState>;
@@ -423,6 +439,9 @@ export type QuoteRequest = {
 
   /** Whether the source of funds is a Polymarket deposit wallet. */
   isPolymarketDepositWallet?: boolean;
+
+  /** Overrides the payment source for the transaction. */
+  paymentOverride?: PaymentOverride;
 
   /**
    * Optional address to receive refunds if the quote provider transaction fails.

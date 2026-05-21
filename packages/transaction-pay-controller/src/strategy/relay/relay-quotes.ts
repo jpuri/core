@@ -269,6 +269,32 @@ async function getSingleQuote(
       body.refundTo = request.refundTo;
     }
 
+    if (request.paymentOverride) {
+      const overrideTxs = await messenger.call(
+        'TransactionPayController:getPaymentOverrideData',
+        transaction.id,
+      );
+
+      if (overrideTxs.length) {
+        const txs = overrideTxs.map((params) => ({
+          to: params.to as Hex,
+          data: (params.data as Hex) ?? '0x',
+          value: (params.value as Hex) ?? '0x0',
+        }));
+
+        const existing = body.txs ?? [];
+        body.txs = request.isPostQuote
+          ? [...existing, ...txs]
+          : [...txs, ...existing];
+
+        log('Injected paymentOverride transactions into request', {
+          transactionId: transaction.id,
+          isPostQuote: request.isPostQuote,
+          txCount: txs.length,
+        });
+      }
+    }
+
     log('Request body', body);
 
     const quote = await fetchRelayQuote(messenger, body, signal);
